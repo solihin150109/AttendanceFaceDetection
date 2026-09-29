@@ -1,0 +1,8 @@
+{
+  "name": "Smart Attendance - Face Recognition",
+  "description": "Sistem Presensi Karyawan Berbasis Web dengan Face Recognition, Anti-Spoofing Liveness, dan Monitoring Real-time untuk Tugas Akhir",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

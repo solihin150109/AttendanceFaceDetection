@@ -1,0 +1,588 @@
+import React, { useState } from 'react';
+import { Plus, Search, Edit2, UserX, UserCheck, Camera, ShieldCheck, AlertCircle, X, Eye } from 'lucide-react';
+import { Employee } from '../types';
+import { ConfirmModal } from './ui/ConfirmModal';
+
+interface EmployeeManagementProps {
+  token: string;
+  employees: Employee[];
+  onRefresh: () => void;
+  onOpenFaceRegistration: (employee: Employee) => void;
+  isAddModalOpenInitially?: boolean;
+  onCloseInitialModal?: () => void;
+}
+
+export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
+  token,
+  employees,
+  onRefresh,
+  onOpenFaceRegistration,
+  isAddModalOpenInitially = false,
+  onCloseInitialModal
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Modal Create / Edit
+  const [isModalOpen, setIsModalOpen] = useState(isAddModalOpenInitially);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+
+  // Destructive Action Modal
+  const [deactivatingEmployee, setDeactivatingEmployee] = useState<Employee | null>(null);
+  const [isDeactivatingLoading, setIsDeactivatingLoading] = useState(false);
+
+  // View Details Modal
+  const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
+
+  const [formData, setFormData] = useState({
+    employee_id: '',
+    name: '',
+    position: '',
+    department: 'Information Technology',
+    email: '',
+    phone: ''
+  });
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const departments = [
+    'Information Technology',
+    'Research & Intelligence',
+    'Human Resources',
+    'Finance & Accounting',
+    'Operations'
+  ];
+
+  const filteredEmployees = employees.filter((emp) => {
+    const matchesSearch =
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.position.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesDept = departmentFilter === 'ALL' || emp.department === departmentFilter;
+    const matchesStatus = statusFilter === 'ALL' || emp.status === statusFilter;
+
+    return matchesSearch && matchesDept && matchesStatus;
+  });
+
+  const openCreateModal = () => {
+    setEditingEmployee(null);
+    setFormData({
+      employee_id: `EMP-${String(employees.length + 1).padStart(3, '0')}`,
+      name: '',
+      position: '',
+      department: 'Information Technology',
+      email: '',
+      phone: ''
+    });
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (emp: Employee) => {
+    setEditingEmployee(emp);
+    setFormData({
+      employee_id: emp.employee_id,
+      name: emp.name,
+      position: emp.position,
+      department: emp.department,
+      email: emp.email || '',
+      phone: emp.phone || ''
+    });
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmToggleStatus = async () => {
+    if (!deactivatingEmployee) return;
+    setIsDeactivatingLoading(true);
+
+    const newStatus = deactivatingEmployee.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    try {
+      const res = await fetch(`/api/employees/${deactivatingEmployee.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.message || 'Gagal mengubah status');
+        return;
+      }
+      onRefresh();
+      setDeactivatingEmployee(null);
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengubah status');
+    } finally {
+      setIsDeactivatingLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+
+    const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees';
+    const method = editingEmployee ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Gagal menyimpan data karyawan.');
+      }
+
+      setIsModalOpen(false);
+      if (onCloseInitialModal) onCloseInitialModal();
+      onRefresh();
+    } catch (err: any) {
+      setFormError(err.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Data Karyawan</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Cari dan kelola data karyawan.
+          </p>
+        </div>
+
+        <button
+          onClick={openCreateModal}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition-all shadow-xs cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Tambah Karyawan</span>
+        </button>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="md:col-span-2 relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Cari nama atau Employee ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors placeholder:text-slate-400 font-medium"
+          />
+        </div>
+
+        <div>
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 bg-white font-medium"
+          >
+            <option value="ALL">Semua Departemen</option>
+            {departments.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 bg-white font-medium"
+          >
+            <option value="ALL">Semua Status</option>
+            <option value="ACTIVE">Status Aktif</option>
+            <option value="INACTIVE">Status Nonaktif</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-5">Foto</th>
+                <th className="py-3 px-5">Employee ID</th>
+                <th className="py-3 px-5">Nama</th>
+                <th className="py-3 px-5">Jabatan</th>
+                <th className="py-3 px-5">Departemen</th>
+                <th className="py-3 px-5">Status</th>
+                <th className="py-3 px-5 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {filteredEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <div className="max-w-xs mx-auto space-y-2">
+                      <div className="font-bold text-slate-700 text-sm">Belum ada data karyawan</div>
+                      <p className="text-xs text-slate-500">
+                        Tambahkan karyawan baru untuk mulai menggunakan sistem absensi.
+                      </p>
+                      <button
+                        onClick={openCreateModal}
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Karyawan</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredEmployees.map((emp) => {
+                  const sampleCount = emp.registered_samples_count || 0;
+                  const isReady = sampleCount >= 5;
+
+                  return (
+                    <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Avatar / Foto */}
+                      <td className="py-3.5 px-5">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                          {emp.name.charAt(0).toUpperCase()}
+                        </div>
+                      </td>
+
+                      {/* Employee ID */}
+                      <td className="py-3.5 px-5 font-mono font-medium text-slate-900">
+                        {emp.employee_id}
+                      </td>
+
+                      {/* Nama */}
+                      <td className="py-3.5 px-5">
+                        <div className="font-bold text-slate-900">{emp.name}</div>
+                        <div className="text-[11px] text-slate-400 font-normal truncate max-w-44">
+                          {emp.email || emp.phone || '-'}
+                        </div>
+                      </td>
+
+                      {/* Jabatan */}
+                      <td className="py-3.5 px-5 text-slate-600">{emp.position}</td>
+
+                      {/* Departemen */}
+                      <td className="py-3.5 px-5 text-slate-600">{emp.department}</td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-5">
+                        <span
+                          className={`font-semibold px-2 py-0.5 rounded-md text-[11px] border ${
+                            emp.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-slate-100 text-slate-500 border-slate-200'
+                          }`}
+                        >
+                          {emp.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                      </td>
+
+                      {/* Actions: View, Edit, Nonaktifkan */}
+                      <td className="py-3.5 px-5 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          onClick={() => setViewingEmployee(emp)}
+                          title="Lihat Detail Profil"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => onOpenFaceRegistration(emp)}
+                          title="Registrasi Biometrik Wajah"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold border border-slate-200 hover:border-slate-800 rounded-lg bg-white text-slate-800 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                        >
+                          <Camera className="w-3 h-3 text-slate-600" />
+                          <span>Wajah ({sampleCount}/5)</span>
+                        </button>
+
+                        <button
+                          onClick={() => openEditModal(emp)}
+                          title="Edit Data"
+                          className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => setDeactivatingEmployee(emp)}
+                          title={emp.status === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'}
+                          className={`p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer ${
+                            emp.status === 'ACTIVE'
+                              ? 'text-slate-400 hover:text-rose-600'
+                              : 'text-slate-400 hover:text-emerald-600'
+                          }`}
+                        >
+                          {emp.status === 'ACTIVE' ? (
+                            <UserX className="w-3.5 h-3.5" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal Form Tambah/Edit */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4.5 bg-slate-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-tight">
+                  {editingEmployee ? `Edit Data: ${editingEmployee.employee_id}` : 'Tambah Karyawan Baru'}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Lengkapi master data identitas pegawai perusahaan
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  if (onCloseInitialModal) onCloseInitialModal();
+                }}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Employee ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.employee_id}
+                    onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                    placeholder="Contoh: EMP-004"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 font-mono font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Nama Lengkap *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nama lengkap"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Jabatan *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    placeholder="Contoh: Software Engineer"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Departemen *
+                  </label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 bg-white font-medium"
+                  >
+                    {departments.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="email@company.co.id"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 font-medium"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    Nomor Telepon
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="0812xxxxxxx"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-hidden focus:border-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    if (onCloseInitialModal) onCloseInitialModal();
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 rounded-xl transition-colors shadow-xs cursor-pointer"
+                >
+                  {isSubmitting ? 'Menyimpan...' : editingEmployee ? 'Simpan Perubahan' : 'Buat Karyawan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal View Detail Karyawan */}
+      {viewingEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 tracking-tight">Detail Profil Karyawan</h3>
+              <button
+                onClick={() => setViewingEmployee(null)}
+                className="text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                  {viewingEmployee.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 text-sm">{viewingEmployee.name}</div>
+                  <div className="text-slate-500 font-mono text-[11px]">{viewingEmployee.employee_id}</div>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-slate-600">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Jabatan:</span>
+                  <strong className="text-slate-900">{viewingEmployee.position}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Departemen:</span>
+                  <strong className="text-slate-900">{viewingEmployee.department}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Email:</span>
+                  <span className="text-slate-900">{viewingEmployee.email || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Telepon:</span>
+                  <span className="text-slate-900">{viewingEmployee.phone || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Status Akun:</span>
+                  <span className="font-semibold text-emerald-700">{viewingEmployee.status}</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-100 pt-2">
+                  <span className="text-slate-400">Sampel Wajah:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    {viewingEmployee.registered_samples_count || 0} / 5 Sampel
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setViewingEmployee(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Deactivating / Activating Employee */}
+      <ConfirmModal
+        isOpen={!!deactivatingEmployee}
+        title={
+          deactivatingEmployee?.status === 'ACTIVE'
+            ? 'Nonaktifkan Karyawan?'
+            : 'Aktifkan Kembali Karyawan?'
+        }
+        message={
+          deactivatingEmployee?.status === 'ACTIVE'
+            ? `Karyawan "${deactivatingEmployee?.name}" tidak dapat melakukan absensi saat berstatus nonaktif. Riwayat kehadiran tetap tersimpan aman.`
+            : `Karyawan "${deactivatingEmployee?.name}" akan dapat kembali melakukan absensi di sistem.`
+        }
+        confirmLabel={deactivatingEmployee?.status === 'ACTIVE' ? 'Nonaktifkan' : 'Aktifkan'}
+        isDestructive={deactivatingEmployee?.status === 'ACTIVE'}
+        isLoading={isDeactivatingLoading}
+        onConfirm={handleConfirmToggleStatus}
+        onCancel={() => setDeactivatingEmployee(null)}
+      />
+    </div>
+  );
+};
