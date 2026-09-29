@@ -40,12 +40,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     forcePasswordChange ? 'PASSWORD' : initialTab
   );
 
+  // Synchronize activeTab when forced mode or initialTab changes
+  React.useEffect(() => {
+    if (forcePasswordChange) {
+      setActiveTab('PASSWORD');
+    } else {
+      setActiveTab(initialTab);
+    }
+  }, [forcePasswordChange, initialTab]);
+
   // Photo state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
     currentUser?.avatar_url || currentUser?.employee?.avatar_url || null
   );
+
+  React.useEffect(() => {
+    setAvatarPreview(currentUser?.avatar_url || currentUser?.employee?.avatar_url || null);
+  }, [currentUser]);
+
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Preset Avatar collection (clean professional avatars encoded as clean SVGs)
+  const presetAvatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=256&h=256&q=80'
+  ];
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -82,11 +106,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   // Submit Photo update
   const handleSavePhoto = async () => {
-    if (!avatarPreview) {
-      onToast('warning', 'Pilih Foto', 'Silakan pilih foto profil terlebih dahulu.');
-      return;
-    }
-
     setIsUploadingPhoto(true);
     try {
       const res = await fetch('/api/user/profile-photo', {
@@ -95,12 +114,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ avatar_url: avatarPreview })
+        body: JSON.stringify({ avatar_url: avatarPreview || '' })
       });
 
       const data = await res.json();
-      if (data.success && data.data?.user) {
-        onUserUpdated(data.data.user);
+      if (data.success) {
+        const updated = data.data?.user || data.data;
+        onUserUpdated(updated);
         onToast('success', 'Foto Berhasil Diperbarui', 'Foto profil Anda berhasil tersimpan.');
         if (!forcePasswordChange) {
           onClose();
@@ -150,8 +170,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       });
 
       const data = await res.json();
-      if (data.success && data.data?.user) {
-        onUserUpdated(data.data.user);
+      if (data.success) {
+        const updated = data.data?.user || data.data;
+        onUserUpdated(updated);
         onToast(
           'success',
           'Kata Sandi Berhasil Diperbarui',
@@ -275,6 +296,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     {currentUser?.role === 'ADMIN' ? 'Administrator' : 'Karyawan'}
                   </div>
                 </div>
+
+                {displayAvatar && (
+                  <button
+                    type="button"
+                    onClick={() => setAvatarPreview(null)}
+                    className="text-[11px] text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                  >
+                    Hapus / Gunakan Inisial Default
+                  </button>
+                )}
               </div>
 
               <input
@@ -285,7 +316,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 className="hidden"
               />
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -297,6 +328,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <p className="text-[11px] text-slate-400 text-center">
                   Format didukung: JPG, PNG, WEBP. Maksimal 5MB.
                 </p>
+
+                {/* Preset Avatars for 1-click select */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="text-[11px] font-semibold text-slate-600 mb-2">
+                    Atau Pilih Avatar Siap Pakai:
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {presetAvatars.map((url, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setAvatarPreview(url)}
+                        className={`w-11 h-11 rounded-xl overflow-hidden border-2 transition-all cursor-pointer hover:scale-105 ${
+                          avatarPreview === url
+                            ? 'border-indigo-600 ring-2 ring-indigo-200'
+                            : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                        title={`Pilih Avatar ${idx + 1}`}
+                      >
+                        <img src={url} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}

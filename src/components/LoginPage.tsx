@@ -152,6 +152,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="font-bold text-slate-900 group-hover:text-emerald-600">Akun Karyawan</div>
                 <div className="text-[10px] text-slate-500 font-mono">ahmad / user123</div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickLogin('budi', 'Pass@1234')}
+                className="col-span-2 p-2.5 rounded-xl border border-amber-200 hover:border-amber-400 bg-amber-50/70 hover:bg-amber-50 text-left transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-amber-900 group-hover:text-amber-800 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Uji Akun Baru (Wajib Ganti Password Pertama Kali)</span>
+                  </div>
+                  <span className="text-[10px] text-amber-700 font-mono font-bold bg-amber-100/80 px-1.5 py-0.5 rounded">budi / Pass@1234</span>
+                </div>
+                <div className="text-[10px] text-amber-800/80 mt-1">
+                  Karyawan yang didaftarkan Admin dengan password otomatis — akan langsung dipaksa mengganti kata sandi.
+                </div>
+              </button>
             </div>
           </div>
         </form>

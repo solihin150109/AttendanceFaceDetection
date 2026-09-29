@@ -176,7 +176,15 @@ export default function App() {
     localStorage.setItem('smart_attendance_token', newToken);
     setCurrentUser(user);
     setActiveTab('dashboard');
-    addToast('success', 'Login Berhasil', `Selamat datang, ${user.employee?.name || user.username}.`);
+    if (user.must_change_password) {
+      addToast(
+        'warning',
+        'Ganti Kata Sandi Wajib',
+        'Ini adalah login pertama Anda. Silakan tentukan kata sandi baru pribadi Anda untuk melanjutkan.'
+      );
+    } else {
+      addToast('success', 'Login Berhasil', `Selamat datang, ${user.employee?.name || user.username}.`);
+    }
   };
 
   // Logout handler with confirmation
@@ -353,7 +361,18 @@ export default function App() {
           title={pageTitle}
           description={pageDescription}
           currentUser={currentUser}
-          onOpenProfile={() => setActiveTab(isAdmin ? 'dashboard' : 'dashboard')}
+          onOpenProfile={() => {
+            setProfileModalInitialTab('PHOTO');
+            setIsProfileModalOpen(true);
+          }}
+          onOpenProfilePhoto={() => {
+            setProfileModalInitialTab('PHOTO');
+            setIsProfileModalOpen(true);
+          }}
+          onOpenChangePassword={() => {
+            setProfileModalInitialTab('PASSWORD');
+            setIsProfileModalOpen(true);
+          }}
           onOpenSettings={() => setActiveTab('settings')}
           onRequestLogout={() => setIsLogoutModalOpen(true)}
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
@@ -391,6 +410,14 @@ export default function App() {
                 onNavigateToAttendance={() => setActiveTab('attendance_kiosk')}
                 onViewHistory={() => setActiveTab('attendance_history')}
                 onNavigateToLeave={() => setActiveTab('leave_management')}
+                onOpenProfilePhoto={() => {
+                  setProfileModalInitialTab('PHOTO');
+                  setIsProfileModalOpen(true);
+                }}
+                onOpenChangePassword={() => {
+                  setProfileModalInitialTab('PASSWORD');
+                  setIsProfileModalOpen(true);
+                }}
               />
             ))}
 
@@ -505,6 +532,35 @@ export default function App() {
             fetchData();
             addToast('success', 'Registrasi Berhasil', 'Profil biometrik 5 sampel berhasil tersimpan.');
           }}
+        />
+      )}
+
+      {/* User Profile & Password Change Modal (Self Service & Mandatory First Login) */}
+      {currentUser && token && (
+        <UserProfileModal
+          isOpen={isProfileModalOpen || !!currentUser.must_change_password}
+          onClose={() => {
+            if (!currentUser.must_change_password) {
+              setIsProfileModalOpen(false);
+            }
+          }}
+          currentUser={currentUser}
+          token={token}
+          onUserUpdated={(updatedUser) => {
+            setCurrentUser(updatedUser);
+            fetchData();
+            if (currentUser.must_change_password && !updatedUser.must_change_password) {
+              setIsProfileModalOpen(false);
+              addToast(
+                'success',
+                'Kata Sandi Baru Aktif',
+                'Selamat! Kata sandi baru Anda berhasil disimpan. Anda kini dapat menggunakan seluruh fitur aplikasi.'
+              );
+            }
+          }}
+          onToast={addToast}
+          initialTab={profileModalInitialTab}
+          forcePasswordChange={!!currentUser.must_change_password}
         />
       )}
 

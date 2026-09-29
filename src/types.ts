@@ -21,6 +21,9 @@ export interface Employee {
   avatar_url?: string;
   registered_samples_count?: number;
   has_biometric?: boolean;
+  has_account?: boolean;
+  account_username?: string;
+  must_change_password?: boolean;
   face_samples?: Array<{
     id: number;
     sample_label: string;

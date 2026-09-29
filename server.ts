@@ -316,6 +316,12 @@ if (db.leave_requests.length === 0) {
   saveDB(db);
 }
 
+// Helper to generate secure auto-password for new employee accounts
+function generateAutoPassword(): string {
+  const randNum = Math.floor(1000 + Math.random() * 9000);
+  return `Pass@${randNum}`;
+}
+
 // Ensure employee user accounts exist in db if loaded from existing database_store.json
 if (!db.users.some(u => u.username === 'ahmad')) {
   const salt = bcrypt.genSaltSync(10);
@@ -327,6 +333,7 @@ if (!db.users.some(u => u.username === 'ahmad')) {
       password_hash: defaultUserPasswordHash,
       role: 'EMPLOYEE',
       employee_id: 1,
+      must_change_password: false,
       created_at: new Date().toISOString()
     },
     {
@@ -335,9 +342,27 @@ if (!db.users.some(u => u.username === 'ahmad')) {
       password_hash: defaultUserPasswordHash,
       role: 'EMPLOYEE',
       employee_id: 2,
+      must_change_password: false,
       created_at: new Date().toISOString()
     }
   );
+  saveDB(db);
+}
+
+// Ensure budi account exists for first-login mandatory password change testing
+if (!db.users.some(u => u.username === 'budi')) {
+  const salt = bcrypt.genSaltSync(10);
+  const budiHash = bcrypt.hashSync('Pass@1234', salt);
+  const newUserId = db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 4;
+  db.users.push({
+    id: newUserId,
+    username: 'budi',
+    password_hash: budiHash,
+    role: 'EMPLOYEE',
+    employee_id: 3,
+    must_change_password: true,
+    created_at: new Date().toISOString()
+  });
   saveDB(db);
 }
 
@@ -465,17 +490,22 @@ app.post('/api/user/profile-photo', authMiddleware, (req, res) => {
   saveDB(db);
 
   const employee = user.employee_id ? db.employees.find(e => e.id === user.employee_id) : undefined;
+  const userPayload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    employee_id: user.employee_id || null,
+    must_change_password: user.must_change_password ?? false,
+    avatar_url: user.avatar_url,
+    employee
+  };
+
   return res.json({
     success: true,
     message: 'Foto profil berhasil diperbarui.',
     data: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      employee_id: user.employee_id || null,
-      must_change_password: user.must_change_password ?? false,
-      avatar_url: user.avatar_url,
-      employee
+      ...userPayload,
+      user: userPayload
     }
   });
 });
@@ -515,17 +545,22 @@ app.post('/api/user/change-password', authMiddleware, (req, res) => {
   saveDB(db);
 
   const employee = user.employee_id ? db.employees.find(e => e.id === user.employee_id) : undefined;
+  const userPayload = {
+    id: user.id,
+    username: user.username,
+    role: user.role,
+    employee_id: user.employee_id || null,
+    must_change_password: false,
+    avatar_url: user.avatar_url || employee?.avatar_url,
+    employee
+  };
+
   return res.json({
     success: true,
     message: 'Kata sandi berhasil diperbarui. Silakan gunakan kata sandi baru untuk login selanjutnya.',
     data: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      employee_id: user.employee_id || null,
-      must_change_password: false,
-      avatar_url: user.avatar_url || employee?.avatar_url,
-      employee
+      ...userPayload,
+      user: userPayload
     }
   });
 });
@@ -594,13 +629,18 @@ app.get('/api/employees', authMiddleware, (req, res) => {
     list = list.filter(e => e.status === String(status));
   }
 
-  // Attach sample_count from face_profiles
+  // Attach sample_count and user account details
   const enriched = list.map(emp => {
     const profiles = db.face_profiles.filter(fp => fp.employee_id === emp.id);
+    const user = db.users.find(u => u.employee_id === emp.id);
     return {
       ...emp,
+      avatar_url: emp.avatar_url || user?.avatar_url,
       registered_samples_count: profiles.length,
-      has_biometric: profiles.length >= db.settings.min_samples_required
+      has_biometric: profiles.length >= db.settings.min_samples_required,
+      has_account: !!user,
+      account_username: user?.username,
+      must_change_password: user?.must_change_password ?? false
     };
   });
 
@@ -618,10 +658,15 @@ app.get('/api/employees/:id', authMiddleware, (req, res) => {
   }
 
   const profiles = db.face_profiles.filter(fp => fp.employee_id === employee.id);
+  const user = db.users.find(u => u.employee_id === employee.id);
   return res.json({
     success: true,
     data: {
       ...employee,
+      avatar_url: employee.avatar_url || user?.avatar_url,
+      has_account: !!user,
+      account_username: user?.username,
+      must_change_password: user?.must_change_password ?? false,
       face_samples: profiles.map(p => ({
         id: p.id,
         sample_label: p.sample_label,
@@ -671,14 +716,14 @@ app.post('/api/employees', authMiddleware, (req, res) => {
 
   db.employees.push(newEmployee);
 
-  // Auto-generate User Account for the employee
+  // Auto-generate User Account for the employee with auto-generated temporary password
   const baseUsername = cleanEmployeeId.toLowerCase().replace(/[^a-z0-9]/g, '');
   let autoUsername = baseUsername || `user${newId}`;
   if (db.users.some(u => u.username.toLowerCase() === autoUsername.toLowerCase())) {
     autoUsername = `${autoUsername}_${newId}`;
   }
 
-  const autoPassword = 'User123!';
+  const autoPassword = generateAutoPassword();
   const salt = bcrypt.genSaltSync(10);
   const password_hash = bcrypt.hashSync(autoPassword, salt);
 
@@ -699,9 +744,12 @@ app.post('/api/employees', authMiddleware, (req, res) => {
 
   return res.status(201).json({
     success: true,
-    message: `Data karyawan ${newEmployee.name} berhasil ditambahkan. Akun login dibuat otomatis: Username "${autoUsername}", Password awal "${autoPassword}" (Wajib diganti pada saat login pertama kali).`,
+    message: `Data karyawan ${newEmployee.name} berhasil ditambahkan. Akun login dibuat otomatis: Username "${autoUsername}", Password bawaan otomatis "${autoPassword}" (Wajib diganti pada saat login pertama kali).`,
     data: {
       ...newEmployee,
+      has_account: true,
+      account_username: autoUsername,
+      must_change_password: true,
       account: {
         username: autoUsername,
         initial_password: autoPassword,
@@ -718,7 +766,7 @@ app.put('/api/employees/:id', authMiddleware, (req, res) => {
     return res.status(404).json({ success: false, message: 'Karyawan tidak ditemukan.' });
   }
 
-  const { employee_id, name, position, department, email, phone } = req.body;
+  const { employee_id, name, position, department, email, phone, avatar_url } = req.body;
 
   if (employee_id) {
     const cleanEmployeeId = String(employee_id).trim().toUpperCase();
@@ -737,10 +785,75 @@ app.put('/api/employees/:id', authMiddleware, (req, res) => {
   if (department) employee.department = String(department).trim();
   if (email !== undefined) employee.email = String(email).trim();
   if (phone !== undefined) employee.phone = String(phone).trim();
+  if (avatar_url !== undefined) {
+    employee.avatar_url = avatar_url ? String(avatar_url).trim() : undefined;
+    const linkedUser = db.users.find(u => u.employee_id === id);
+    if (linkedUser) {
+      linkedUser.avatar_url = employee.avatar_url;
+    }
+  }
   employee.updated_at = new Date().toISOString();
 
   saveDB(db);
   return res.json({ success: true, message: 'Data karyawan berhasil diperbarui.', data: employee });
+});
+
+/**
+ * Reset Employee Account Password with an auto-generated password
+ * Forces must_change_password = true on next login
+ */
+app.post('/api/employees/:id/reset-password', authMiddleware, (req, res) => {
+  const session = (req as any).user;
+  const adminUser = db.users.find(u => u.id === session.userId);
+  if (!adminUser || adminUser.role !== 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'Hanya Administrator yang berwenang mereset password akun karyawan.' });
+  }
+
+  const id = parseInt(req.params.id);
+  const employee = db.employees.find(e => e.id === id);
+  if (!employee) {
+    return res.status(404).json({ success: false, message: 'Karyawan tidak ditemukan.' });
+  }
+
+  let user = db.users.find(u => u.employee_id === id);
+  const autoPassword = generateAutoPassword();
+  const salt = bcrypt.genSaltSync(10);
+  const password_hash = bcrypt.hashSync(autoPassword, salt);
+
+  if (!user) {
+    const baseUsername = employee.employee_id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let autoUsername = baseUsername || `user${employee.id}`;
+    if (db.users.some(u => u.username.toLowerCase() === autoUsername.toLowerCase())) {
+      autoUsername = `${autoUsername}_${employee.id}`;
+    }
+    const newUserId = db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 1;
+    user = {
+      id: newUserId,
+      username: autoUsername,
+      password_hash,
+      role: 'EMPLOYEE',
+      employee_id: employee.id,
+      must_change_password: true,
+      avatar_url: employee.avatar_url,
+      created_at: new Date().toISOString()
+    };
+    db.users.push(user);
+  } else {
+    user.password_hash = password_hash;
+    user.must_change_password = true;
+  }
+
+  saveDB(db);
+
+  return res.json({
+    success: true,
+    message: `Password akun "${user.username}" berhasil direset otomatis. Pengguna wajib mengganti kata sandi saat login pertama kali.`,
+    data: {
+      username: user.username,
+      initial_password: autoPassword,
+      must_change_password: true
+    }
+  });
 });
 
 // Soft Delete / Toggle Status to preserve attendance foreign keys

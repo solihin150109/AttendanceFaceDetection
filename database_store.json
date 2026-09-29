@@ -6,7 +6,8 @@
       "password_hash": "$2b$10$XOeqphTQ0qLnVbghz75RLu4j154SoBDN.zfL6L0qEWCh5gRHHEt92",
       "role": "ADMIN",
       "employee_id": null,
-      "created_at": "2026-09-29T07:25:40.556Z"
+      "created_at": "2026-09-29T07:25:40.556Z",
+      "must_change_password": false
     },
     {
       "id": 2,
@@ -14,7 +15,8 @@
       "password_hash": "$2b$10$XOeqphTQ0qLnVbghz75RLus43Y5WOI/c8ZcSxPMXnF3MXjRcKNy9.",
       "role": "EMPLOYEE",
       "employee_id": 1,
-      "created_at": "2026-09-29T07:25:40.557Z"
+      "created_at": "2026-09-29T07:25:40.557Z",
+      "must_change_password": false
     },
     {
       "id": 3,
@@ -22,7 +24,27 @@
       "password_hash": "$2b$10$XOeqphTQ0qLnVbghz75RLus43Y5WOI/c8ZcSxPMXnF3MXjRcKNy9.",
       "role": "EMPLOYEE",
       "employee_id": 2,
-      "created_at": "2026-09-29T07:25:40.557Z"
+      "created_at": "2026-09-29T07:25:40.557Z",
+      "must_change_password": false
+    },
+    {
+      "id": 4,
+      "username": "budi",
+      "password_hash": "$2b$10$F6SjihvjLSU4WlO9CFtHjOFwybrapWS/nQtx0HX9UQeJx1FT1ic1e",
+      "role": "EMPLOYEE",
+      "employee_id": 3,
+      "created_at": "2026-09-29T07:25:40.557Z",
+      "must_change_password": true
+    },
+    {
+      "id": 5,
+      "username": "emp099",
+      "password_hash": "$2b$10$bEVn51s0Q3lIHf8CLcXeru6UTM9zTPYiE8jAX.ns9RwIWBwfqniUG",
+      "role": "EMPLOYEE",
+      "employee_id": 4,
+      "must_change_password": true,
+      "avatar_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80",
+      "created_at": "2026-09-29T09:50:05.983Z"
     }
   ],
   "employees": [
@@ -64,6 +86,20 @@
       "created_at": "2026-09-24T07:25:40.557Z",
       "updated_at": "2026-09-29T07:25:40.557Z",
       "total_leave_quota": 12
+    },
+    {
+      "id": 4,
+      "employee_id": "EMP-099",
+      "name": "Rian Pratama",
+      "position": "Frontend Engineer",
+      "department": "Information Technology",
+      "email": "rian@company.co.id",
+      "phone": "081299998888",
+      "status": "ACTIVE",
+      "total_leave_quota": 12,
+      "avatar_url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80",
+      "created_at": "2026-09-29T09:50:05.880Z",
+      "updated_at": "2026-09-29T09:50:05.880Z"
     }
   ],
   "face_profiles": [
@@ -1438,7 +1474,19 @@
       "created_at": "2026-09-29T07:40:31.200Z"
     }
   ],
-  "attendance": [],
+  "attendance": [
+    {
+      "id": 1,
+      "employee_id": 1,
+      "date": "2026-09-29",
+      "check_in": "09:39:56",
+      "check_out": "09:40:32",
+      "status": "LATE",
+      "recognition_distance": 0.4107,
+      "created_at": "2026-09-29T09:39:56.332Z",
+      "updated_at": "2026-09-29T09:40:32.357Z"
+    }
+  ],
   "recognition_logs": [
     {
       "id": 1,
@@ -2204,6 +2252,28 @@
       "processing_time_ms": 48,
       "ip_address": "127.0.0.1",
       "notes": "Kamera Live Sensor (Wajah: 1, Roll: 0.0°)"
+    },
+    {
+      "id": 52,
+      "timestamp": "2026-09-29T09:39:56.332Z",
+      "matched_employee_id": 1,
+      "recognition_result": "SUCCESS",
+      "calculated_distance": 0.4107,
+      "threshold_used": 0.45,
+      "liveness_passed": true,
+      "processing_time_ms": 1,
+      "ip_address": "127.0.0.1"
+    },
+    {
+      "id": 53,
+      "timestamp": "2026-09-29T09:40:32.357Z",
+      "matched_employee_id": 1,
+      "recognition_result": "SUCCESS",
+      "calculated_distance": 0.4472,
+      "threshold_used": 0.45,
+      "liveness_passed": true,
+      "processing_time_ms": 0,
+      "ip_address": "127.0.0.1"
     }
   ],
   "settings": {

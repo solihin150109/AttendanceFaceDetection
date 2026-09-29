@@ -35,12 +35,17 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
   // View Details Modal
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
 
+  // Reset Password State
+  const [resettingEmployee, setResettingEmployee] = useState<Employee | null>(null);
+  const [isResettingLoading, setIsResettingLoading] = useState(false);
+
   // New Account Created Notification Modal
   const [createdAccountInfo, setCreatedAccountInfo] = useState<{
     name: string;
     employee_id: string;
     username: string;
     initial_password: string;
+    is_reset?: boolean;
   } | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -62,6 +67,15 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
     'Human Resources',
     'Finance & Accounting',
     'Operations'
+  ];
+
+  const presetAvatars = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=256&h=256&q=80',
+    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=256&h=256&q=80'
   ];
 
   const filteredEmployees = employees.filter((emp) => {
@@ -104,6 +118,40 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
     });
     setFormError(null);
     setIsModalOpen(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resettingEmployee) return;
+    setIsResettingLoading(true);
+
+    try {
+      const res = await fetch(`/api/employees/${resettingEmployee.id}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.message || 'Gagal mereset kata sandi.');
+        return;
+      }
+
+      onRefresh();
+      setCreatedAccountInfo({
+        name: resettingEmployee.name,
+        employee_id: resettingEmployee.employee_id,
+        username: data.data.username,
+        initial_password: data.data.initial_password,
+        is_reset: true
+      });
+      setResettingEmployee(null);
+    } catch (err: any) {
+      alert(err.message || 'Terjadi kesalahan saat mereset kata sandi.');
+    } finally {
+      setIsResettingLoading(false);
+    }
   };
 
   const handleConfirmToggleStatus = async () => {
@@ -246,9 +294,9 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
               <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold uppercase tracking-wider">
                 <th className="py-3 px-5">Foto</th>
                 <th className="py-3 px-5">Employee ID</th>
-                <th className="py-3 px-5">Nama</th>
-                <th className="py-3 px-5">Jabatan</th>
-                <th className="py-3 px-5">Departemen</th>
+                <th className="py-3 px-5">Nama Karyawan</th>
+                <th className="py-3 px-5">Jabatan & Dept</th>
+                <th className="py-3 px-5">Akun Login</th>
                 <th className="py-3 px-5">Status</th>
                 <th className="py-3 px-5 text-right">Aksi</th>
               </tr>
@@ -275,14 +323,17 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
               ) : (
                 filteredEmployees.map((emp) => {
                   const sampleCount = emp.registered_samples_count || 0;
-                  const isReady = sampleCount >= 5;
 
                   return (
                     <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Avatar / Foto */}
+                      {/* Avatar / Foto Profil */}
                       <td className="py-3.5 px-5">
-                        <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                          {emp.name.charAt(0).toUpperCase()}
+                        <div className="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden border border-slate-200">
+                          {emp.avatar_url ? (
+                            <img src={emp.avatar_url} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{emp.name.charAt(0).toUpperCase()}</span>
+                          )}
                         </div>
                       </td>
 
@@ -299,13 +350,35 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                         </div>
                       </td>
 
-                      {/* Jabatan */}
-                      <td className="py-3.5 px-5 text-slate-600">{emp.position}</td>
+                      {/* Jabatan & Departemen */}
+                      <td className="py-3.5 px-5">
+                        <div className="text-slate-900 font-medium">{emp.position}</div>
+                        <div className="text-[11px] text-slate-400">{emp.department}</div>
+                      </td>
 
-                      {/* Departemen */}
-                      <td className="py-3.5 px-5 text-slate-600">{emp.department}</td>
+                      {/* Status Akun Login Pengguna */}
+                      <td className="py-3.5 px-5">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                              {emp.account_username || emp.employee_id.toLowerCase().replace(/[^a-z0-9]/g, '')}
+                            </span>
+                          </div>
+                          {emp.must_change_password ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <KeyRound className="w-2.5 h-2.5 text-amber-600" />
+                              Wajib Ganti Password
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                              Akun Aktif
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                      {/* Status */}
+                      {/* Status Kepegawaian */}
                       <td className="py-3.5 px-5">
                         <span
                           className={`font-semibold px-2 py-0.5 rounded-md text-[11px] border ${
@@ -318,7 +391,7 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                         </span>
                       </td>
 
-                      {/* Actions: View, Edit, Nonaktifkan */}
+                      {/* Actions: View, Reset Password, Wajah, Edit, Nonaktifkan */}
                       <td className="py-3.5 px-5 text-right space-x-1 whitespace-nowrap">
                         <button
                           onClick={() => setViewingEmployee(emp)}
@@ -329,9 +402,17 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                         </button>
 
                         <button
+                          onClick={() => setResettingEmployee(emp)}
+                          title="Reset Password Otomatis"
+                          className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer border border-amber-200"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
                           onClick={() => onOpenFaceRegistration(emp)}
                           title="Registrasi Biometrik Wajah"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold border border-slate-200 hover:border-slate-800 rounded-lg bg-white text-slate-800 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold border border-slate-200 hover:border-slate-800 rounded-lg bg-white text-slate-800 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
                         >
                           <Camera className="w-3 h-3 text-slate-600" />
                           <span>Wajah ({sampleCount}/5)</span>
@@ -339,7 +420,7 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
 
                         <button
                           onClick={() => openEditModal(emp)}
-                          title="Edit Data"
+                          title="Edit Data Karyawan & Foto"
                           className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -373,14 +454,14 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
       {/* Modal Form Tambah/Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4.5 bg-slate-900 text-white flex items-center justify-between">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-sm font-bold tracking-tight">
                   {editingEmployee ? `Edit Data: ${editingEmployee.employee_id}` : 'Tambah Karyawan Baru'}
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Lengkapi master data identitas pegawai perusahaan
+                  Lengkapi master data identitas pegawai dan foto profil
                 </p>
               </div>
               <button
@@ -395,13 +476,93 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               {formError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
                   <span>{formError}</span>
                 </div>
               )}
+
+              {/* Security info for newly added employee */}
+              {!editingEmployee && (
+                <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-indigo-950 text-xs flex items-start gap-2.5">
+                  <KeyRound className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 leading-relaxed">
+                    <strong className="text-indigo-900 font-bold block">Pembuatan Akun Otomatis</strong>
+                    <span className="text-[11px] text-indigo-800">
+                      Sistem akan membuatkan akun pengguna dengan kata sandi acak otomatis. Pengguna akan <strong>diwajibkan mengganti kata sandi</strong> saat pertama kali masuk ke sistem.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Foto Profil Karyawan */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <label className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">
+                  Foto Profil Karyawan (Opsional)
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-xs overflow-hidden shrink-0 border-2 border-white ring-2 ring-slate-200">
+                    {formData.avatar_url ? (
+                      <img src={formData.avatar_url} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{formData.name ? formData.name.charAt(0).toUpperCase() : 'EMP'}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg cursor-pointer transition-colors inline-flex items-center gap-1.5 shadow-2xs">
+                        <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Unggah Foto</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  avatar_url: event.target?.result as string
+                                }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      {formData.avatar_url && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, avatar_url: '' }))}
+                          className="text-[11px] text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                        >
+                          Hapus Foto
+                        </button>
+                      )}
+                    </div>
+                    {/* Preset Avatars for 1-click select */}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-slate-400 font-medium">Atau pilih:</span>
+                      {presetAvatars.slice(0, 4).map((url, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, avatar_url: url }))}
+                          className={`w-6 h-6 rounded-md overflow-hidden border cursor-pointer ${
+                            formData.avatar_url === url ? 'ring-2 ring-indigo-600 border-indigo-600' : 'border-slate-300'
+                          }`}
+                        >
+                          <img src={url} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -585,7 +746,7 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
         </div>
       )}
 
-      {/* Modal Akun Login Karyawan Baru Berhasil Dibuat */}
+      {/* Modal Akun Login Karyawan Baru / Reset Password Berhasil Dibuat */}
       {createdAccountInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-150">
@@ -594,8 +755,14 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Akun Karyawan Berhasil Dibuat!</h3>
-                <p className="text-xs text-slate-500">Kredensial login otomatis telah dibuat oleh sistem.</p>
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  {createdAccountInfo.is_reset ? 'Password Berhasil Direset Otomatis!' : 'Akun Karyawan Berhasil Dibuat!'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {createdAccountInfo.is_reset
+                    ? 'Kata sandi baru otomatis berhasil dibuat oleh sistem.'
+                    : 'Kredensial login otomatis telah dibuat oleh sistem.'}
+                </p>
               </div>
             </div>
 
@@ -611,7 +778,7 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <span className="text-slate-500 font-medium">Password Bawaan:</span>
+                <span className="text-slate-500 font-medium">Password Otomatis:</span>
                 <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
                   {createdAccountInfo.initial_password}
                 </span>
@@ -653,6 +820,18 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for Resetting Employee Password */}
+      <ConfirmModal
+        isOpen={!!resettingEmployee}
+        title="Reset Password Karyawan?"
+        message={`Sistem akan menghasilkan kata sandi otomatis baru untuk akun "${resettingEmployee?.name}". Karyawan akan dipaksa mengganti kata sandi saat login berikutnya.`}
+        confirmLabel="Reset Password Otomatis"
+        cancelLabel="Batal"
+        isLoading={isResettingLoading}
+        onConfirm={handleConfirmResetPassword}
+        onCancel={() => setResettingEmployee(null)}
+      />
 
       {/* Confirmation Modal for Deactivating / Activating Employee */}
       <ConfirmModal
