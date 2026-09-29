@@ -18,6 +18,8 @@ interface TopbarProps {
   onOpenSettings: () => void;
   onRequestLogout: () => void;
   onToggleMobileSidebar: () => void;
+  onOpenProfilePhoto?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -27,7 +29,9 @@ export const Topbar: React.FC<TopbarProps> = ({
   onOpenProfile,
   onOpenSettings,
   onRequestLogout,
-  onToggleMobileSidebar
+  onToggleMobileSidebar,
+  onOpenProfilePhoto,
+  onOpenChangePassword
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -45,6 +49,7 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const displayName = currentUser?.employee?.name || currentUser?.username || 'Pengguna';
   const roleLabel = currentUser?.role === 'ADMIN' ? 'Administrator' : 'Karyawan';
+  const avatarUrl = currentUser?.avatar_url || currentUser?.employee?.avatar_url;
 
   return (
     <header className="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
@@ -77,8 +82,12 @@ export const Topbar: React.FC<TopbarProps> = ({
             className="flex items-center gap-3 p-1.5 pl-2.5 rounded-xl border border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/80 transition-all cursor-pointer focus:outline-hidden"
           >
             {/* Avatar */}
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-              {displayName.charAt(0).toUpperCase()}
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                <span>{displayName.charAt(0).toUpperCase()}</span>
+              )}
             </div>
 
             <div className="text-left hidden sm:block">
@@ -99,26 +108,47 @@ export const Topbar: React.FC<TopbarProps> = ({
           {isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 duration-150 z-30">
               {/* User Header */}
-              <div className="px-4 py-3 border-b border-slate-100">
-                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <UserIcon className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="truncate">{displayName}</span>
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden shrink-0">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{displayName.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5 font-medium">{roleLabel}</div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 truncate">{displayName}</div>
+                  <div className="text-[11px] text-slate-400 font-medium">{roleLabel}</div>
+                </div>
               </div>
 
               {/* Items */}
               <div className="py-1">
-                <button
-                  onClick={() => {
-                    setIsDropdownOpen(false);
-                    onOpenProfile();
-                  }}
-                  className="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
-                >
-                  <UserIcon className="w-4 h-4 text-slate-400" />
-                  <span>Profil</span>
-                </button>
+                {onOpenProfilePhoto && (
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      onOpenProfilePhoto();
+                    }}
+                    className="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <UserIcon className="w-4 h-4 text-indigo-600" />
+                    <span>Update Foto Profil</span>
+                  </button>
+                )}
+
+                {onOpenChangePassword && (
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      onOpenChangePassword();
+                    }}
+                    className="w-full px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Ganti Kata Sandi</span>
+                  </button>
+                )}
 
                 {currentUser?.role === 'ADMIN' && (
                   <button

@@ -165,6 +165,8 @@ export const AttendanceHistoryView: React.FC<AttendanceHistoryViewProps> = ({
             <option value="ALL">Semua Status</option>
             <option value="PRESENT">Hadir</option>
             <option value="LATE">Terlambat</option>
+            <option value="ON_LEAVE">Cuti</option>
+            <option value="PERMISSION">Izin</option>
           </select>
         </div>
       </div>
@@ -219,10 +221,20 @@ export const AttendanceHistoryView: React.FC<AttendanceHistoryViewProps> = ({
                         className={`font-semibold px-2.5 py-0.5 rounded-md text-[11px] border ${
                           item.status === 'PRESENT'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                            : item.status === 'LATE'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : item.status === 'ON_LEAVE'
+                            ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                            : 'bg-purple-50 text-purple-800 border-purple-200'
                         }`}
                       >
-                        {item.status === 'PRESENT' ? 'Hadir' : 'Terlambat'}
+                        {item.status === 'PRESENT'
+                          ? 'Hadir'
+                          : item.status === 'LATE'
+                          ? 'Terlambat'
+                          : item.status === 'ON_LEAVE'
+                          ? 'Cuti'
+                          : 'Izin'}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-right font-mono text-slate-500">

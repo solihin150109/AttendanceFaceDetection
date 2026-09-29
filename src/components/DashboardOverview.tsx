@@ -9,7 +9,9 @@ import {
   ArrowRight,
   TrendingUp,
   Sliders,
-  ShieldCheck
+  ShieldCheck,
+  FileText,
+  CalendarCheck
 } from 'lucide-react';
 import { DashboardStats, AttendanceRecord } from '../types';
 
@@ -20,6 +22,7 @@ interface DashboardOverviewProps {
   onQuickRegisterFace: () => void;
   onViewAllAttendance: () => void;
   onViewSettings: () => void;
+  onNavigateToLeave?: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -28,7 +31,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onQuickAddEmployee,
   onQuickRegisterFace,
   onViewAllAttendance,
-  onViewSettings
+  onViewSettings,
+  onNavigateToLeave
 }) => {
   if (!stats) {
     return (
@@ -40,8 +44,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 4 Essential Summary Cards with Strict Hierarchy */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Essential Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         {/* Total Karyawan */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-slate-500">
@@ -84,8 +88,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="text-xs text-amber-700/80 font-medium">&gt; Jam batas masuk</div>
         </div>
 
+        {/* Cuti & Izin Hari Ini */}
+        <div className="bg-white p-5 rounded-2xl border border-indigo-100/90 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between text-indigo-800">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-800">
+              Cuti / Izin
+            </span>
+            <CalendarCheck className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div className="text-3xl font-bold text-indigo-700 font-mono tracking-tight pt-1">
+            {stats.onLeaveToday ?? 0}
+          </div>
+          <div className="text-xs text-indigo-700/80 font-medium">Izin sah terverifikasi</div>
+        </div>
+
         {/* Belum Absen */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-1 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Belum Absen
@@ -99,7 +117,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       </div>
 
-      {/* Quick Actions Panel (Admin Management Only - No Absen Button) */}
+      {/* Quick Actions Panel */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3">
         <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
           Aksi Manajemen Cepat (Quick Actions)
@@ -112,6 +130,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Plus className="w-4 h-4 text-emerald-400 group-hover:rotate-90 transition-transform duration-200" />
             <span>Tambah Karyawan Baru</span>
           </button>
+
+          {onNavigateToLeave && (
+            <button
+              onClick={onNavigateToLeave}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 text-slate-800 hover:text-indigo-700 text-xs font-semibold rounded-xl transition-all shadow-2xs cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span>Kelola Izin & Cuti</span>
+              {stats.pendingLeaveRequests !== undefined && stats.pendingLeaveRequests > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500 text-white font-mono font-bold">
+                  {stats.pendingLeaveRequests}
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             onClick={onQuickRegisterFace}

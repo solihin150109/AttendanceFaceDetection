@@ -10,7 +10,10 @@ import {
   ShieldCheck,
   CalendarCheck,
   ScanFace,
-  ArrowRight
+  ArrowRight,
+  FileText,
+  Camera,
+  Lock
 } from 'lucide-react';
 import { User as UserType, AttendanceRecord } from '../types';
 
@@ -19,13 +22,19 @@ interface UserDashboardProps {
   token: string;
   onNavigateToAttendance: () => void;
   onViewHistory: () => void;
+  onNavigateToLeave?: () => void;
+  onOpenProfilePhoto?: () => void;
+  onOpenChangePassword?: () => void;
 }
 
 export const UserDashboard: React.FC<UserDashboardProps> = ({
   user,
   token,
   onNavigateToAttendance,
-  onViewHistory
+  onViewHistory,
+  onNavigateToLeave,
+  onOpenProfilePhoto,
+  onOpenChangePassword
 }) => {
   const [personalRecords, setPersonalRecords] = React.useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -59,15 +68,33 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   const displayName = user?.employee?.name || user?.username || 'Karyawan';
   const displayInitial = displayName.charAt(0).toUpperCase();
+  const avatarUrl = user?.avatar_url || user?.employee?.avatar_url;
 
   return (
     <div className="space-y-6">
       {/* Welcome Banner Card */}
       <div className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
-            {displayInitial}
+          <div className="relative group">
+            <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-xl shadow-xs shrink-0 overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                displayInitial
+              )}
+            </div>
+            {onOpenProfilePhoto && (
+              <button
+                type="button"
+                onClick={onOpenProfilePhoto}
+                className="absolute -bottom-1 -right-1 p-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs border border-white cursor-pointer transition-transform hover:scale-110"
+                title="Ganti Foto Profil"
+              >
+                <Camera className="w-3 h-3" />
+              </button>
+            )}
           </div>
+
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -83,14 +110,39 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onNavigateToAttendance}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer group"
-        >
-          <ScanFace className="w-4 h-4" />
-          <span>Lakukan Absensi Wajah</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {onOpenChangePassword && (
+            <button
+              type="button"
+              onClick={onOpenChangePassword}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-2xs border border-slate-200 cursor-pointer"
+              title="Ganti Kata Sandi"
+            >
+              <Lock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Ganti Password</span>
+            </button>
+          )}
+
+          {onNavigateToLeave && (
+            <button
+              type="button"
+              onClick={onNavigateToLeave}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-2xs border border-indigo-200 cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span>Izin / Cuti</span>
+            </button>
+          )}
+
+          <button
+            onClick={onNavigateToAttendance}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer group"
+          >
+            <ScanFace className="w-4 h-4" />
+            <span>Lakukan Absensi Wajah</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
       </div>
 
       {/* 3 Status KPI Cards */}

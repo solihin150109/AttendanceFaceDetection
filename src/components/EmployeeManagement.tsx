@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit2, UserX, UserCheck, Camera, ShieldCheck, AlertCircle, X, Eye } from 'lucide-react';
+import { Plus, Search, Edit2, UserX, UserCheck, Camera, ShieldCheck, AlertCircle, X, Eye, KeyRound, Copy, CheckCircle2 } from 'lucide-react';
 import { Employee } from '../types';
 import { ConfirmModal } from './ui/ConfirmModal';
 
@@ -35,13 +35,23 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
   // View Details Modal
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
 
+  // New Account Created Notification Modal
+  const [createdAccountInfo, setCreatedAccountInfo] = useState<{
+    name: string;
+    employee_id: string;
+    username: string;
+    initial_password: string;
+  } | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
   const [formData, setFormData] = useState({
     employee_id: '',
     name: '',
     position: '',
     department: 'Information Technology',
     email: '',
-    phone: ''
+    phone: '',
+    avatar_url: ''
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,7 +84,8 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
       position: '',
       department: 'Information Technology',
       email: '',
-      phone: ''
+      phone: '',
+      avatar_url: ''
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -88,7 +99,8 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
       position: emp.position,
       department: emp.department,
       email: emp.email || '',
-      phone: emp.phone || ''
+      phone: emp.phone || '',
+      avatar_url: emp.avatar_url || ''
     });
     setFormError(null);
     setIsModalOpen(true);
@@ -149,6 +161,15 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
       setIsModalOpen(false);
       if (onCloseInitialModal) onCloseInitialModal();
       onRefresh();
+
+      if (!editingEmployee && data.data?.account) {
+        setCreatedAccountInfo({
+          name: data.data.name,
+          employee_id: data.data.employee_id,
+          username: data.data.account.username,
+          initial_password: data.data.account.initial_password
+        });
+      }
     } catch (err: any) {
       setFormError(err.message || 'Terjadi kesalahan sistem.');
     } finally {
@@ -558,6 +579,75 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({
                 className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Akun Login Karyawan Baru Berhasil Dibuat */}
+      {createdAccountInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Akun Karyawan Berhasil Dibuat!</h3>
+                <p className="text-xs text-slate-500">Kredensial login otomatis telah dibuat oleh sistem.</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Nama Karyawan:</span>
+                <strong className="text-slate-900">{createdAccountInfo.name}</strong>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Username Login:</span>
+                <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  {createdAccountInfo.username}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">Password Bawaan:</span>
+                <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  {createdAccountInfo.initial_password}
+                </span>
+              </div>
+              <div className="pt-1 text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 leading-relaxed flex items-start gap-2">
+                <KeyRound className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Keamanan:</strong> Karyawan akan <strong>dipaksa mengganti kata sandi</strong> saat pertama kali melakukan login ke dalam sistem.
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    `Kredensial Akun Smart Attendance:\nNama: ${createdAccountInfo.name}\nUsername: ${createdAccountInfo.username}\nPassword Sementara: ${createdAccountInfo.initial_password}\n(Catatan: Wajib ganti password saat login pertama kali)`
+                  );
+                  setIsCopied(true);
+                  setTimeout(() => setIsCopied(false), 3000);
+                }}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                {isCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{isCopied ? 'Tersalin!' : 'Salin Kredensial'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatedAccountInfo(null);
+                  setIsCopied(false);
+                }}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs"
+              >
+                Selesai
               </button>
             </div>
           </div>

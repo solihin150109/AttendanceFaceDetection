@@ -491,7 +491,13 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ onBackToDashboar
                 <div className="border border-emerald-200 bg-emerald-50/70 p-5 rounded-2xl space-y-3.5">
                   <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    <span>Absensi Berhasil</span>
+                    <span>
+                      {serverResult.action === 'CHECK_OUT'
+                        ? 'Presensi Pulang Berhasil'
+                        : serverResult.action === 'CHECK_IN'
+                        ? 'Presensi Masuk Berhasil'
+                        : 'Absensi Berhasil'}
+                    </span>
                   </div>
 
                   <div className="border-t border-emerald-200/80 pt-3 space-y-1">

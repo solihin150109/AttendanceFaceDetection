@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Employee, SystemSettings, AttendanceRecord, DashboardStats } from './types';
+import { User, Employee, SystemSettings, AttendanceRecord, DashboardStats, LeaveSummary } from './types';
 import { Sidebar, TabType } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { LoginPage } from './components/LoginPage';
@@ -9,12 +9,14 @@ import { AttendancePage } from './components/AttendancePage';
 import { EmployeeManagement } from './components/EmployeeManagement';
 import { FaceRegistrationWizard } from './components/FaceRegistrationWizard';
 import { AttendanceHistoryView } from './components/AttendanceHistoryView';
+import { LeaveManagementView } from './components/LeaveManagementView';
 import { ReportsView } from './components/ReportsView';
 import { ResearchView } from './components/ResearchView';
 import { SettingsView } from './components/SettingsView';
 import { ConfirmModal } from './components/ui/ConfirmModal';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
 import { HelpModal } from './components/ui/HelpModal';
+import { UserProfileModal } from './components/UserProfileModal';
 
 export default function App() {
   // Session Authentication State
@@ -31,6 +33,8 @@ export default function App() {
   // Modals & Action States
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'PHOTO' | 'PASSWORD'>('PHOTO');
   const [registeringEmployee, setRegisteringEmployee] = useState<Employee | null>(null);
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
 
@@ -54,6 +58,7 @@ export default function App() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [leaveSummary, setLeaveSummary] = useState<LeaveSummary | null>(null);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState<boolean>(false);
 
   // Authenticate Current Session
@@ -114,6 +119,22 @@ export default function App() {
     }
   }, [token]);
 
+  // Load Leave Summary
+  const fetchLeaveSummary = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/leave-requests/summary', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLeaveSummary(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching leave summary:', err);
+    }
+  }, [token]);
+
   // Load Employees and Settings
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -137,10 +158,11 @@ export default function App() {
 
       fetchTodayAttendance();
       fetchDashboardStats();
+      fetchLeaveSummary();
     } catch (err) {
       console.error('Error fetching initial data:', err);
     }
-  }, [token, fetchTodayAttendance, fetchDashboardStats]);
+  }, [token, fetchTodayAttendance, fetchDashboardStats, fetchLeaveSummary]);
 
   useEffect(() => {
     if (token) {
@@ -217,6 +239,16 @@ export default function App() {
               title: 'Riwayat Absensi Saya',
               description: 'Catatan historis kehadiran dan kepulangan pribadi Anda.'
             };
+      case 'leave_management':
+        return isAdmin
+          ? {
+              title: 'Manajemen Izin & Cuti',
+              description: 'Persetujuan permohonan, arsip berkas surat pendukung, dan pengaturan kuota cuti tahunan pegawai.'
+            }
+          : {
+              title: 'Pengajuan Izin & Cuti',
+              description: 'Formulir permohonan izin/cuti, upload berkas surat pendukung, dan riwayat status persetujuan.'
+            };
       case 'reports':
         return {
           title: 'Laporan Absensi',
@@ -265,9 +297,9 @@ export default function App() {
   const { title: pageTitle, description: pageDescription } = getHeaderInfo();
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-800 flex font-sans selection:bg-slate-900 selection:text-white">
-      {/* Desktop Collapsible Sidebar */}
-      <div className="hidden md:block shrink-0">
+    <div className="min-h-screen bg-slate-50/70 text-slate-800 flex font-sans selection:bg-slate-900 selection:text-white w-full">
+      {/* Desktop Sticky Dynamic Sidebar: Always pins at top-0 and follows when scrolling down */}
+      <div className="hidden md:block shrink-0 sticky top-0 h-screen z-30 self-start">
         <Sidebar
           activeTab={activeTab}
           onSelectTab={(tab) => setActiveTab(tab)}
@@ -276,6 +308,7 @@ export default function App() {
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           todayCount={todayAttendance.length}
           employeeCount={employees.length}
+          pendingLeaveCount={leaveSummary?.pendingCount || 0}
           onOpenHelp={() => setIsHelpModalOpen(true)}
         />
       </div>
@@ -305,6 +338,7 @@ export default function App() {
           onToggleCollapse={() => setIsMobileSidebarOpen(false)}
           todayCount={todayAttendance.length}
           employeeCount={employees.length}
+          pendingLeaveCount={leaveSummary?.pendingCount || 0}
           onOpenHelp={() => {
             setIsMobileSidebarOpen(false);
             setIsHelpModalOpen(true);
@@ -313,7 +347,7 @@ export default function App() {
       </div>
 
       {/* Main Layout Area */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen w-full">
         {/* Topbar with Page Title & Right Profile Dropdown */}
         <Topbar
           title={pageTitle}
@@ -326,7 +360,7 @@ export default function App() {
         />
 
         {/* Main Content Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
           {/* TAB 1: DASHBOARD (DIFFERENTIATED FOR ADMIN & USER) */}
           {activeTab === 'dashboard' &&
             (isAdmin ? (
@@ -346,6 +380,9 @@ export default function App() {
                 onViewSettings={() => {
                   setActiveTab('settings');
                 }}
+                onNavigateToLeave={() => {
+                  setActiveTab('leave_management');
+                }}
               />
             ) : (
               <UserDashboard
@@ -353,6 +390,7 @@ export default function App() {
                 token={token}
                 onNavigateToAttendance={() => setActiveTab('attendance_kiosk')}
                 onViewHistory={() => setActiveTab('attendance_history')}
+                onNavigateToLeave={() => setActiveTab('leave_management')}
               />
             ))}
 
@@ -399,17 +437,33 @@ export default function App() {
             />
           )}
 
-          {/* TAB 6: LAPORAN (ADMIN ONLY) */}
+          {/* TAB 6: IZIN & CUTI (LEAVE MANAGEMENT FOR ADMIN & EMPLOYEE) */}
+          {activeTab === 'leave_management' && (
+            <LeaveManagementView
+              token={token}
+              currentUser={currentUser}
+              employees={employees}
+              onToast={addToast}
+              onRefresh={() => {
+                fetchData();
+                fetchTodayAttendance();
+                fetchDashboardStats();
+                fetchLeaveSummary();
+              }}
+            />
+          )}
+
+          {/* TAB 7: LAPORAN (ADMIN ONLY) */}
           {activeTab === 'reports' && isAdmin && (
             <ReportsView token={token} employees={employees} />
           )}
 
-          {/* TAB 7: PENGUJIAN RECOGNITION / BAB IV (ADMIN ONLY) */}
+          {/* TAB 8: PENGUJIAN RECOGNITION / BAB IV (ADMIN ONLY) */}
           {activeTab === 'research' && isAdmin && (
             <ResearchView token={token} employees={employees} />
           )}
 
-          {/* TAB 8: PENGATURAN SISTEM (ADMIN ONLY) */}
+          {/* TAB 9: PENGATURAN SISTEM (ADMIN ONLY) */}
           {activeTab === 'settings' && isAdmin && (
             <SettingsView token={token} settings={settings} onRefresh={fetchData} />
           )}
